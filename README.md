@@ -1,7 +1,7 @@
 # nonebot_plugin_aniwifex_gacha
 
 二次元老婆插件的 **Gacha 分支**，基于
-[`nonebot_plugin_animewifex_lite`](https://github.com/monbed/nonebot_plugin_animewifex_lite)
+[`nonebot_plugin_animewifex_lite`](https://github.com/xiaoyaoyo23333/nonebot_plugin_animewifex)
 修改而来：在 Lite 版的「抽老婆 / 查老婆 / 换老婆」之上，新增一套
 **「十连抽老婆」卡池玩法**（Pick Up 提升概率 + 120 抽保底）。
 
