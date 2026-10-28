@@ -7,7 +7,7 @@
 
 适合只需要「每天抽个老婆」并想要一点抽卡仪式感的群，功能比完整版少，不容易打架。
 
-**作者**：monbed（原作者）· MiniMax Code（AI 辅助开发与维护）· xiaoyaoyo23333（维护）
+**作者**：xiaoyaoyo23333（移植）、MiniMax Code（AI 辅助开发与维护）、monbed（astrbot插件原作者）
 **仓库**：https://github.com/xiaoyaoyo23333/nonebot_plugin_animewifex_gacha
 
 ## 与 Lite 版 / 完整版的关系
@@ -59,16 +59,16 @@ nb-cli plugin install ./nonebot_plugin_aniwifex_gacha
 
 ## 已验证的运行环境
 
-以下均为**实际跑通**的组合（集成测试 119 项 + 真实 OneBot V11 端到端 31 项）：
+以下均为**实际跑通**的组合（集成测试 124 项 + 真实 OneBot V11 端到端 33 项）：
 
 | Python | NoneBot2 | OneBot 适配器 | pydantic | 集成测试 | 端到端 |
 | --- | --- | --- | --- | --- | --- |
-| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 119 | ✅ 31 |
-| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 119 | ✅ 31 |
-| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 119 | ✅ 31 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 119 | ✅ 31 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 119 | ✅ 31 |
-| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 119 | ✅ 31 |
+| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 124 | ✅ 33 |
+| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 124 | ✅ 33 |
+| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 124 | ✅ 33 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 124 | ✅ 33 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 124 | ✅ 33 |
+| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 124 | ✅ 33 |
 
 > 端到端测试用**真实的 `nonebot.adapters.onebot.v11` 事件 / 消息段 / Bot** 驱动插件，
 > 校验 `pick up → 十连 → 选图 → 发图` 全流程产出的确实是带文本段 + 图片段的 OneBot V11 消息。
@@ -103,6 +103,8 @@ nb-cli plugin install ./nonebot_plugin_aniwifex_gacha
 ```dotenv
 ANIMEWIFEX_GACHA_NEED_PREFIX=false          # 是否需要命令前缀触发
 ANIMEWIFEX_GACHA_CHANGE_MAX_PER_DAY=3       # 每日换老婆次数
+ANIMEWIFEX_GACHA_REPLY_DELAY_MIN=2          # 回复前的随机延迟下限（秒）
+ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=8          # 回复前的随机延迟上限（秒）；设 0 即关闭延迟
 ANIMEWIFEX_GACHA_PICKUP_RATE=0.02           # 单抽命中 Pick Up 老婆的概率（2%）
 ANIMEWIFEX_GACHA_PITY_LIMIT=120             # 累计多少次单抽必出 Pick Up
 ANIMEWIFEX_GACHA_TEN_DRAW_COUNT=10          # 一次十连抽几张
@@ -125,6 +127,8 @@ ANIMEWIFEX_GACHA_DATA_DIR=                  # 数据目录，留空则用 <data_
 | --- | --- |
 | 让人多换几次 | `ANIMEWIFEX_GACHA_CHANGE_MAX_PER_DAY=10` |
 | 几乎不让换 | `ANIMEWIFEX_GACHA_CHANGE_MAX_PER_DAY=0`（抽完就锁死） |
+| 不想等待、恢复秒回 | `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=0` |
+| 等待短一点 | `ANIMEWIFEX_GACHA_REPLY_DELAY_MIN=1` `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=3` |
 | UP 更常见 | `ANIMEWIFEX_GACHA_PICKUP_RATE=0.05`（5%） |
 | 保底更快 | `ANIMEWIFEX_GACHA_PITY_LIMIT=60` |
 | 改成二十连 | `ANIMEWIFEX_GACHA_TEN_DRAW_COUNT=20` |
@@ -138,6 +142,11 @@ ANIMEWIFEX_GACHA_DATA_DIR=                  # 数据目录，留空则用 <data_
 - `ANIMEWIFEX_GACHA_IMAGE_BASE_URL` / `ANIMEWIFEX_GACHA_IMAGE_LIST_URL` 已**停用**（代码中已注释），
   写在 `.env` 里也不会再生效
 - 图库为空时会记录一条 warning 并回复「获取失败」，不会去联网兜底
+
+**图库来源（或自备）：**
+ 本插件配套图库：<https://github.com/xiaoyaoyo23333/animewifex_repo_x-ver>
+
+下载后放进 `<数据目录>/img/wife/` 即可。
 
 放图方式（**统一按 `作品名!角色名.jpg` 命名**，`!` 前会被当作作品来源显示）：
 
@@ -211,6 +220,19 @@ data/animewifex_gacha/img/wife/
 > 引用回复走适配器自带的 `reply` 段：OneBot V11 的数据键是 `id`、V12 是 `message_id`，
 > 插件统一调适配器工厂构造，不会写死字段名。
 > 事件里取不到 `message_id`（部分适配器不提供）时自动退化成普通消息，不会报错。
+
+### 拟人化延迟（不秒回）
+
+机器人不会收到指令就秒回：**每一条回复**在发出前都会随机等 2～8 秒
+（`ANIMEWIFEX_GACHA_REPLY_DELAY_MIN` / `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX`），
+模拟真人「看到消息 → 打字 → 发送」的过程。
+
+- 区间内每次都是随机取值，节奏不会固定得像个机器人。
+- 一条指令要回多条消息时（例如设置 Pick Up 后先回执再追问），**每条各自等一次**，
+  总等待会久一点。
+- 嫌慢就把上限设成 `0`（`ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=0`）恢复秒回；
+  只想短一点就把两个值一起调小。
+- 延迟只影响「什么时候发」，不影响消息内容与抽卡结果。
 
 ### 抽老婆 / 查老婆
 
@@ -537,3 +559,4 @@ JSON 均为原子写入（临时文件 + 替换），并对文件被外部改坏
 - 牛老婆、交换、重置相关的一切（命令、配置、数据、昵称匹配、禁言调用）已从 Lite 版移除。
 - 新增「十连抽老婆」卡池玩法（Pick Up 提升概率、120 抽保底、每日一次、结果自选）。
 - 单抽与十连每天二选一：当天用过一种就不能再用另一种，两种玩法不会互相覆盖今天的老婆。
+- 新增拟人化回复延迟：每条回复发出前随机等 2-8 秒，不再秒回（`ANIMEWIFEX_GACHA_REPLY_DELAY_MIN` / `_MAX`，上限设 0 可关闭）。
