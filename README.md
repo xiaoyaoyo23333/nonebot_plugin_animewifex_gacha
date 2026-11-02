@@ -59,16 +59,16 @@ nb-cli plugin install ./nonebot_plugin_aniwifex_gacha
 
 ## 已验证的运行环境
 
-以下均为**实际跑通**的组合（集成测试 124 项 + 真实 OneBot V11 端到端 33 项）：
+以下均为**实际跑通**的组合（集成测试 137 项 + 真实 OneBot V11 端到端 34 项）：
 
 | Python | NoneBot2 | OneBot 适配器 | pydantic | 集成测试 | 端到端 |
 | --- | --- | --- | --- | --- | --- |
-| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 124 | ✅ 33 |
-| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 124 | ✅ 33 |
-| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 124 | ✅ 33 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 124 | ✅ 33 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 124 | ✅ 33 |
-| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 124 | ✅ 33 |
+| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 137 | ✅ 34 |
+| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 137 | ✅ 34 |
+| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 137 | ✅ 34 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 137 | ✅ 34 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 137 | ✅ 34 |
+| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 137 | ✅ 34 |
 
 > 端到端测试用**真实的 `nonebot.adapters.onebot.v11` 事件 / 消息段 / Bot** 驱动插件，
 > 校验 `pick up → 十连 → 选图 → 发图` 全流程产出的确实是带文本段 + 图片段的 OneBot V11 消息。
@@ -108,6 +108,7 @@ ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=8          # 回复前的随机延迟上限（�
 ANIMEWIFEX_GACHA_PICKUP_RATE=0.02           # 单抽命中 Pick Up 老婆的概率（2%）
 ANIMEWIFEX_GACHA_PITY_LIMIT=120             # 累计多少次单抽必出 Pick Up
 ANIMEWIFEX_GACHA_TEN_DRAW_COUNT=10          # 一次十连抽几张
+ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=120  # 十连结果的自选超时（秒），超时后 bot 自动随机选一张；设 0 关闭
 # ANIMEWIFEX_GACHA_IMAGE_BASE_URL=          # 已停用：远程图床，插件只读本地图库
 # ANIMEWIFEX_GACHA_IMAGE_LIST_URL=          # 已停用：远程图片列表
 ANIMEWIFEX_GACHA_TIMEZONE=Asia/Shanghai     # 判定「今天」用的时区；留空依次回退 NoneBot2 timezone、TZ、Asia/Shanghai
@@ -129,6 +130,9 @@ ANIMEWIFEX_GACHA_DATA_DIR=                  # 数据目录，留空则用 <data_
 | 几乎不让换 | `ANIMEWIFEX_GACHA_CHANGE_MAX_PER_DAY=0`（抽完就锁死） |
 | 不想等待、恢复秒回 | `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=0` |
 | 等待短一点 | `ANIMEWIFEX_GACHA_REPLY_DELAY_MIN=1` `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=3` |
+| 不想要超时自动选 | `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=0` |
+| 超时快一点 | `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=60` |
+| 整个 bot 统一调整等待节奏 | `REPLY_DELAY_MIN=2` `REPLY_DELAY_MAX=8`（全局开关，其它插件也吃这套） |
 | UP 更常见 | `ANIMEWIFEX_GACHA_PICKUP_RATE=0.05`（5%） |
 | 保底更快 | `ANIMEWIFEX_GACHA_PITY_LIMIT=60` |
 | 改成二十连 | `ANIMEWIFEX_GACHA_TEN_DRAW_COUNT=20` |
@@ -228,11 +232,20 @@ data/animewifex_gacha/img/wife/
 模拟真人「看到消息 → 打字 → 发送」的过程。
 
 - 区间内每次都是随机取值，节奏不会固定得像个机器人。
+- **按回复长度自适应**：打字耗时和文字量正相关，所以短回复落在区间前段、
+  长回复落在后段（80 字按满格算），同长度回复再叠一点随机抖动；
+  无论长短都不会越出 `MIN`~`MAX` 的边界。
 - 一条指令要回多条消息时（例如设置 Pick Up 后先回执再追问），**每条各自等一次**，
   总等待会久一点。
 - 嫌慢就把上限设成 `0`（`ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=0`）恢复秒回；
   只想短一点就把两个值一起调小。
 - 延迟只影响「什么时候发」，不影响消息内容与抽卡结果。
+
+> **全局开关**：本插件的延迟变量没配时，会回退读全局的 `REPLY_DELAY_MIN` /
+> `REPLY_DELAY_MAX`——那是同一套 bot 里其它插件（help / ping / 签到 / 生日等）
+> 共用的开关，配置一处即可统一调整。
+> 优先级：`ANIMEWIFEX_GACHA_*` > `ANIMEWIFEX_LITE_*` > 全局 `REPLY_DELAY_*` > 内置默认值 2 / 8。
+> 注意前缀变量一旦写了就以它为准：写成 `0` 表示「关闭延迟」，不会被全局值顶掉。
 
 ### 抽老婆 / 查老婆
 
@@ -454,7 +467,33 @@ Bot ：小明，你今天的老婆是来自《约会大作战》的五河琴里�
 - 待选列表跨天自动失效，第二天要重新抽；
 - 换了 Pick Up 不会影响累计抽数，所以攒到 119 抽时可以放心换目标；
 - 锁定文案会**标明来源**：从十连结果里自选的带「（通过十连抽自选）」，
-  同一轮直接命中 Pick Up 的带「（通过十连抽必出Pick Up!）」。
+  同一轮直接命中 Pick Up 的带「（通过十连抽必出Pick Up!）」，
+  超时由插件代选的带「（通过十连抽超时自动选）」。
+
+### 超时自动选择
+
+发了十连却一直没回复数字的话，超过 **两分钟**（`ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS`）
+插件就替你从 10 张里随机选一张，保证「今天的老婆」当天一定有着落：
+
+```
+小明：十连抽老婆
+Bot ：【十连抽老婆】结果：
+      1.《约会大作战》五河琴里
+      …（共 10 张）
+      已完成十连抽老婆，回复数字以选取今天的老婆
+
+（两分钟没回复）
+Bot ：小明，你今天的老婆是来自《另一作》的爱丽丝（通过十连抽超时自动选） [图片]
+```
+
+- **计时从收到指令那一刻开始**，拟人化的 2-8 秒回复延迟**不占用**这个窗口——
+  即使那次回复等了 8 秒，用户仍有完整的 120 秒挑卡。
+- 用户自己回复了数字就以用户的选择为准，不会被自动选择覆盖；
+  待选列表跨天失效后也不会再自动选。
+- 自动选择发出的那条消息同样走拟人化延迟（再等 2-8 秒才到），所以从超时到看到结果
+  最长可能接近两分半。
+- 插件重启后内存里的定时器会丢，重启时会直接替还没选的列表定下来（安静生效，不发消息）。
+- 不想要这个行为就把 `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS` 设成 `0`。
 
 ## 与其它老婆插件共存
 
@@ -547,6 +586,7 @@ JSON 均为原子写入（临时文件 + 替换），并对文件被外部改坏
 | 消息段构造 | 从事件取适配器的消息段类再调其 `text()` / `at()` / `image()`，缺失则按标准字段直接构造 |
 | @ 目标解析 | 按 `segment.type == "at"` + `data["qq"]` 解析，不使用适配器特有的 `is_at()` |
 | pydantic | 同时兼容 v1（`__fields__` / `parse_obj_as` / `.copy()`）与 v2（`model_fields` / `TypeAdapter` / `.model_copy()`） |
+| 拟人化延迟配置 | 逐级回退：`ANIMEWIFEX_GACHA_*` → `ANIMEWIFEX_LITE_*` → 全局 `REPLY_DELAY_*` → 内置默认 2 / 8；前缀变量写了就以它为准（写 `0` 即关闭延迟） |
 
 ## 与 AstrBot 版的差异
 
@@ -560,3 +600,6 @@ JSON 均为原子写入（临时文件 + 替换），并对文件被外部改坏
 - 新增「十连抽老婆」卡池玩法（Pick Up 提升概率、120 抽保底、每日一次、结果自选）。
 - 单抽与十连每天二选一：当天用过一种就不能再用另一种，两种玩法不会互相覆盖今天的老婆。
 - 新增拟人化回复延迟：每条回复发出前随机等 2-8 秒，不再秒回（`ANIMEWIFEX_GACHA_REPLY_DELAY_MIN` / `_MAX`，上限设 0 可关闭）。
+- 新增十连结果超时自动选择：回复数字超时（默认 120 秒）后 bot 随机替他选一张，计时不受拟人化延迟影响。
+- 拟人化延迟改为**按回复长度自适应**（短回复快、长回复慢，始终不越出 2-8 秒边界），
+  并支持全局 `REPLY_DELAY_MIN` / `REPLY_DELAY_MAX` 兜底，与同一套 bot 的其它插件共用一个开关。
