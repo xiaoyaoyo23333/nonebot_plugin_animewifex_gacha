@@ -59,16 +59,16 @@ nb-cli plugin install ./nonebot_plugin_aniwifex_gacha
 
 ## 已验证的运行环境
 
-以下均为**实际跑通**的组合（集成测试 137 项 + 真实 OneBot V11 端到端 34 项）：
+以下均为**实际跑通**的组合（集成测试 162 项 + 真实 OneBot V11 端到端 37 项）：
 
 | Python | NoneBot2 | OneBot 适配器 | pydantic | 集成测试 | 端到端 |
 | --- | --- | --- | --- | --- | --- |
-| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 137 | ✅ 34 |
-| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 137 | ✅ 34 |
-| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 137 | ✅ 34 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 137 | ✅ 34 |
-| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 137 | ✅ 34 |
-| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 137 | ✅ 34 |
+| **3.11.9** | **2.4.2** | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 162 | ✅ 37 |
+| **3.11.9** | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 162 | ✅ 37 |
+| 3.11.9 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 162 | ✅ 37 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 2.14.1 | ✅ 162 | ✅ 37 |
+| 3.12.10 | 2.4.2 | nonebot-adapter-onebot 2.4.3 | 1.10.26 | ✅ 162 | ✅ 37 |
+| 3.12.10 | 2.5.0 | nonebot-adapter-onebot 2.4.6 | 2.14.1 | ✅ 162 | ✅ 37 |
 
 > 端到端测试用**真实的 `nonebot.adapters.onebot.v11` 事件 / 消息段 / Bot** 驱动插件，
 > 校验 `pick up → 十连 → 选图 → 发图` 全流程产出的确实是带文本段 + 图片段的 OneBot V11 消息。
@@ -109,6 +109,8 @@ ANIMEWIFEX_GACHA_PICKUP_RATE=0.02           # 单抽命中 Pick Up 老婆的概�
 ANIMEWIFEX_GACHA_PITY_LIMIT=120             # 累计多少次单抽必出 Pick Up
 ANIMEWIFEX_GACHA_TEN_DRAW_COUNT=10          # 一次十连抽几张
 ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=120  # 十连结果的自选超时（秒），超时后 bot 自动随机选一张；设 0 关闭
+ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_LIMIT=3     # 累计几次十连超时没选就触发惩罚；设 0 关闭惩罚
+ANIMEWIFEX_GACHA_TEN_DRAW_PUNISH_DAYS=10        # 触发惩罚后禁止十连的天数（期间只能单抽）
 # ANIMEWIFEX_GACHA_IMAGE_BASE_URL=          # 已停用：远程图床，插件只读本地图库
 # ANIMEWIFEX_GACHA_IMAGE_LIST_URL=          # 已停用：远程图片列表
 ANIMEWIFEX_GACHA_TIMEZONE=Asia/Shanghai     # 判定「今天」用的时区；留空依次回退 NoneBot2 timezone、TZ、Asia/Shanghai
@@ -132,6 +134,8 @@ ANIMEWIFEX_GACHA_DATA_DIR=                  # 数据目录，留空则用 <data_
 | 等待短一点 | `ANIMEWIFEX_GACHA_REPLY_DELAY_MIN=1` `ANIMEWIFEX_GACHA_REPLY_DELAY_MAX=3` |
 | 不想要超时自动选 | `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=0` |
 | 超时快一点 | `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS=60` |
+| 不想要超时惩罚 | `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_LIMIT=0` |
+| 惩罚久一点 | `ANIMEWIFEX_GACHA_TEN_DRAW_PUNISH_DAYS=30` |
 | 整个 bot 统一调整等待节奏 | `REPLY_DELAY_MIN=2` `REPLY_DELAY_MAX=8`（全局开关，其它插件也吃这套） |
 | UP 更常见 | `ANIMEWIFEX_GACHA_PICKUP_RATE=0.05`（5%） |
 | 保底更快 | `ANIMEWIFEX_GACHA_PITY_LIMIT=60` |
@@ -322,12 +326,17 @@ Bot ：好的，之后的「抽老婆」也会按 Pick Up! 概率出图啦（单
 ```
 小明：抽老婆
 Bot ：小明，你今天的老婆是来自《轻小说》的明日香（🌟pick up!角色），请好好珍惜哦~
+Bot ：本次总共120抽出🌟pick up!
 Bot ：今天的老婆已锁定不可更换哦~ [图片]
 ```
 
 和十连一样，命中 Pick Up 的单抽会**锁定**今天的老婆，之后 `换老婆` / `抽老婆` 都会被拒。
 
 > 标记文案两套不同：单抽命中写「（🌟pick up!角色）」，十连结果列表里那一行写「🌟pick up!」。
+
+> 「本次总共 xx 抽出🌟pick up!」里的 xx 是**累计抽数**：距上次出 Pick Up 起算、
+> 含本次命中那次。保底（120 抽）触发时正好是 120；命中后计数清零，
+> 下次再出就重新从小算。两种玩法各记各的计数，互不影响。
 
 > 单抽每天只生效一次（当天再发 `抽老婆` 返回同一个人），所以单抽的保底计数每天最多 +1；
 > 120 抽的上限意味着最多攒 120 天。想缩短就调小 `ANIMEWIFEX_GACHA_PITY_LIMIT`。
@@ -396,7 +405,7 @@ Bot ：你还未pick up!老婆，请使用“pick up+角色名”进行pick up!
 ```
 小明：pick up 不存在的老婆
 Bot ：图库暂无该老婆，请pick up!其他老婆
-      可提交issue申请扩充：https://github.com/xiaoyaoyo23333/nonebot_plugin_animewifex_gacha/issues
+      可提交issue申请扩充：https://github.com/xiaoyaoyo23333/animewifex_repo_x-ver/issues/
 ```
 
 **重名**时会列出候选让你选数字——同名不同作品、同名不同扩展名（`.jpg` / `.png`）都会触发：
@@ -456,6 +465,7 @@ Bot ：【十连抽老婆】结果：
       10.《轻小说》明日香
 
       已完成9次抽，剩余111次必出pick up!
+      本次总共120抽出🌟pick up!
       本次十连已出pick up!老婆，今日不可从结果中自选
       可发送“更换pick up+老婆名”更换pick up! 老婆
 Bot ：小明，你今天的老婆是来自《约会大作战》的五河琴里（通过十连抽必出Pick Up!） [图片]
@@ -466,6 +476,8 @@ Bot ：小明，你今天的老婆是来自《约会大作战》的五河琴里�
 - 每天只有一次十连，再发会得到 `小明，你今天已经抽过一次十连了，明天再来吧~`；
 - 待选列表跨天自动失效，第二天要重新抽；
 - 换了 Pick Up 不会影响累计抽数，所以攒到 119 抽时可以放心换目标；
+- 命中 Pick Up 时会报出「本次总共 xx 抽出🌟pick up!」：xx 是距上次出 Pick Up 起算、
+  含本次命中那次的累计抽数（保底触发时正好是 120），命中后计数清零重新累计；
 - 锁定文案会**标明来源**：从十连结果里自选的带「（通过十连抽自选）」，
   同一轮直接命中 Pick Up 的带「（通过十连抽必出Pick Up!）」，
   超时由插件代选的带「（通过十连抽超时自动选）」。
@@ -494,6 +506,29 @@ Bot ：小明，你今天的老婆是来自《另一作》的爱丽丝（通过�
   最长可能接近两分半。
 - 插件重启后内存里的定时器会丢，重启时会直接替还没选的列表定下来（安静生效，不发消息）。
 - 不想要这个行为就把 `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_SECONDS` 设成 `0`。
+
+#### 超时自选的兜底惩罚
+
+总是让 bot 替你挑、自己不挑是不行的，所以有个兜底：
+
+- 每被自动选一次就累计一次（`ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_LIMIT`，默认 **3** 次）；
+- 累计够次数后触发惩罚：**10 天**（`ANIMEWIFEX_GACHA_TEN_DRAW_PUNISH_DAYS`）内不能十连抽老婆，只能单抽；
+- 触发惩罚的那次会当场告诉你：
+
+```
+小明，你今天的老婆是来自《另一作》的爱丽丝（通过十连抽超时自动选） [图片]
+已累计 3 次十连超时没选老婆，10 天内只能单抽，不能十连抽老婆了哦~
+```
+
+- 惩罚期内发十连会被拒：
+
+```
+小明：你今天已经抽过一次十连了，明天再来吧~   ← 正常拦法
+小明，你已被罚 10 天只能单抽老婆，这段时间不能十连抽老婆了哦~
+```
+
+- 惩罚到期后自动恢复，计数也重新从 0 开始累计；
+- 不想有惩罚就把 `ANIMEWIFEX_GACHA_TEN_DRAW_AUTO_PICK_LIMIT` 设成 `0`。
 
 ## 与其它老婆插件共存
 
@@ -539,7 +574,7 @@ Bot ：小明，你今天的老婆是来自《另一作》的爱丽丝（通过�
 animewifex_gacha/
 ├── config/
 │   ├── <群号>.json          # 该群成员的老婆记录
-│   ├── gacha_<群号>.json     # 该群的十连抽状态（Pick Up / 累计抽数 / 待选列表）
+│   ├── gacha_<群号>.json     # 该群的十连抽状态（Pick Up / 累计抽数 / 待选列表 / 超时惩罚）
 │   └── records.json         # 每日换老婆次数记录（仅 change 一个分区）
 └── img/wife/                # 本地图库（可手动放图）
 ```
@@ -552,6 +587,8 @@ animewifex_gacha/
     "pickup": "约会大作战!五河琴里.jpg",
     "count": 37,
     "ten_date": "2026-10-22",
+    "auto_pick_count": 1,
+    "punish_until": "2026-11-01",
     "pending": {
       "kind": "gacha",
       "date": "2026-10-22",
@@ -569,6 +606,8 @@ animewifex_gacha/
 - `single_target`：`single_pickup` 这份答案绑定的 Pick Up 目标；与当前 `pickup` 不一致时答案作废
 - `ask`：待回答的「是否运用至单抽」问题（跨天失效）
 - `pending`：待用户回复数字选择的列表（`gacha`=十连结果 / `pickup`=Pick Up 候选），跨天失效
+- `auto_pick_count`：累计「十连超时被 bot 自动选择」的次数；攒够 3 次触发惩罚并清零
+- `punish_until`：惩罚截止日期（`YYYY-MM-DD`）；期间十连被拒、只能单抽，到期后自动恢复
 
 JSON 均为原子写入（临时文件 + 替换），并对文件被外部改坏的情况做了降级处理；
 每天零点后自动清理过期的次数记录（`records.json` 里的换老婆次数）。
@@ -601,5 +640,7 @@ JSON 均为原子写入（临时文件 + 替换），并对文件被外部改坏
 - 单抽与十连每天二选一：当天用过一种就不能再用另一种，两种玩法不会互相覆盖今天的老婆。
 - 新增拟人化回复延迟：每条回复发出前随机等 2-8 秒，不再秒回（`ANIMEWIFEX_GACHA_REPLY_DELAY_MIN` / `_MAX`，上限设 0 可关闭）。
 - 新增十连结果超时自动选择：回复数字超时（默认 120 秒）后 bot 随机替他选一张，计时不受拟人化延迟影响。
+- 新增超时自选的兜底惩罚：累计 3 次超时没选就罚 10 天不能十连、只能单抽。
+- 缺图引导的 issue 链接改到图库仓库 `xiaoyaoyo23333/animewifex_repo_x-ver`。
 - 拟人化延迟改为**按回复长度自适应**（短回复快、长回复慢，始终不越出 2-8 秒边界），
   并支持全局 `REPLY_DELAY_MIN` / `REPLY_DELAY_MAX` 兜底，与同一套 bot 的其它插件共用一个开关。
